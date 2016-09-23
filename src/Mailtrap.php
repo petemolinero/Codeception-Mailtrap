@@ -104,14 +104,27 @@ class Mailtrap extends Module
     }
 
     /**
+     * Get all messages from the inbox.
+     *
+     * @return array
+     */
+    public function fetchAllMessages()
+    {
+        $messages = $this->client->get("inboxes/{$this->config['inbox_id']}/messages")->getBody();
+        $messages = json_decode($messages, true);
+
+        return $messages;
+    }
+
+
+    /**
      * Get the most recent message of the default inbox.
      *
      * @return array
      */
     public function fetchLastMessage()
     {
-        $messages = $this->client->get("inboxes/{$this->config['inbox_id']}/messages")->getBody();
-        $messages = json_decode($messages, true);
+        $messages = $this->fetchAllMessages();
 
         return array_shift($messages);
     }
@@ -127,6 +140,41 @@ class Mailtrap extends Module
         $response = $this->client->get("inboxes/{$this->config['inbox_id']}/messages/{$email['id']}/attachments")->getBody();
 
         return json_decode($response, true);
+    }
+
+    /**
+     * Check if there is any email in the inbox that contains $params.
+     *
+     * @param $params
+     *
+     * @return mixed
+     */
+    public function haveEmailWithinInbox( $params )
+    {
+        $messages = $this->fetchAllMessages();
+        $emailExists = false;
+
+        // Cycle through each of the messages
+        foreach( $messages as $message ) {
+            $matchingParamsForMessage = 0;
+
+            foreach ($params as $param => $value) {
+                if ( $value == $message[$param] ) {
+                    $matchingParamsForMessage++;
+                }
+            }
+
+            // If every param had a match, then the requested email exists
+            if ( $matchingParamsForMessage == count( $params ) ) {
+                $emailExists = true;
+                break;
+            }
+        }
+
+        // If it doesn't exist, fail with a useful message
+        if ( !$emailExists ) {
+            $this->fail( 'Failed asserting that the specified e-mail exists' );
+        }
     }
 
     /**
