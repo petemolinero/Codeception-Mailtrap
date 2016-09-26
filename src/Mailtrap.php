@@ -159,6 +159,12 @@ class Mailtrap extends Module
             $matchingParamsForMessage = 0;
 
             foreach ($params as $param => $value) {
+                
+                // Mailtrap seems to add a newline to the end of each 'html_body'. This removes it.
+                if ( $param == 'html_body' ) {
+                    $message['html_body'] = rtrim( $message['html_body'] );
+                }
+                
                 if ( $value == $message[$param] ) {
                     $matchingParamsForMessage++;
                 }
