@@ -146,40 +146,55 @@ class Mailtrap extends Module
      * Check if there is any email in the inbox that contains $params.
      *
      * @param $params
+     * @param $wait    the number or seconds to wait/retry if the e-mail isn't found initially
+     * @param $start   the time() that the first request was sent
      *
      * @return mixed
      */
-    public function haveEmailWithinInbox( $params )
+    public function haveEmailWithinInbox( $params, $wait = 5, $start = null )
     {
+        if ( is_null( $start ) ) {
+            $start = time();
+        }
+
         $messages = $this->fetchAllMessages();
+        $closestMatching = array();
         $emailExists = false;
 
         // Cycle through each of the messages
         foreach( $messages as $message ) {
-            $matchingParamsForMessage = 0;
+            $matchingParamsForMessage = array();
 
             foreach ($params as $param => $value) {
-                
-                // Mailtrap seems to add a newline to the end of each 'html_body'. This removes it.
                 if ( $param == 'html_body' ) {
                     $message['html_body'] = rtrim( $message['html_body'] );
                 }
-                
+
                 if ( $value == $message[$param] ) {
-                    $matchingParamsForMessage++;
+                    $matchingParamsForMessage[] = $param;
                 }
             }
 
             // If every param had a match, then the requested email exists
-            if ( $matchingParamsForMessage == count( $params ) ) {
+            if ( count( $matchingParamsForMessage ) == count( $params ) ) {
                 $emailExists = true;
                 break;
             }
+            // If the message we just checked was the best match yet, save it
+            if ( count( $matchingParamsForMessage ) > count ( $closestMatching ) ) {
+                $closestMatching = $matchingParamsForMessage;
+            }
+        }
+
+        // If we're still inside the wait task, keep polling the server
+        if ( !$emailExists && time() < ( $start + $wait ) ) {
+            $this->haveEmailWithinInbox( $params, $wait, $start );
         }
 
         // If it doesn't exist, fail with a useful message
         if ( !$emailExists ) {
-            $this->fail( 'Failed asserting that the specified e-mail exists' );
+            $paramsNotFound = implode( ', ', array_diff( array_keys( $params ), $closestMatching ) );
+            $this->fail( 'Failed asserting that the specified e-mail exists. Could not find matching: ' . $paramsNotFound );
         }
     }
 
