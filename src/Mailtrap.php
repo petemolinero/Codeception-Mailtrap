@@ -70,7 +70,7 @@ class Mailtrap extends Module
      *
      * @param \Codeception\TestCase $test
      */
-    public function _after(\Codeception\TestCase $test)
+    public function _after(\Codeception\TestInterface $test)
     {
         if ($this->config['cleanup']) {
             $this->cleanInbox();
