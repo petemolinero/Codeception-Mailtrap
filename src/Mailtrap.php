@@ -159,6 +159,7 @@ class Mailtrap extends Module
 
         $messages = $this->fetchAllMessages();
         $closestMatching = array();
+        $closestMatchingMessage = array();
         $emailExists = false;
 
         // Cycle through each of the messages
@@ -167,7 +168,12 @@ class Mailtrap extends Module
 
             foreach ($params as $param => $value) {
                 if ( $param == 'html_body' ) {
+
                     $message['html_body'] = rtrim( $message['html_body'] );
+
+                    // Ignore spacing issues
+                    $message['html_body'] = preg_replace( '/\s+/', '', $message['html_body'] );
+                    $params['html_body'] = preg_replace( '/\s+/', '', $params['html_body'] );
                 }
 
                 if ( $value == $message[$param] ) {
@@ -183,6 +189,7 @@ class Mailtrap extends Module
             // If the message we just checked was the best match yet, save it
             if ( count( $matchingParamsForMessage ) > count ( $closestMatching ) ) {
                 $closestMatching = $matchingParamsForMessage;
+                $closestMatchingMessage = $message;
             }
         }
 
@@ -194,6 +201,21 @@ class Mailtrap extends Module
         // If it doesn't exist, fail with a useful message
         if ( !$emailExists ) {
             $paramsNotFound = implode( ', ', array_diff( array_keys( $params ), $closestMatching ) );
+
+            foreach ( array_diff( array_keys( $params ), $closestMatching ) as $value ) {
+                codecept_debug( "EXPECTED:" );
+                codecept_debug( $params[ $value ] );
+                codecept_debug( strlen( $params[ $value ] ) );
+                codecept_debug( "ACTUAL:" );
+                codecept_debug( strlen( $closestMatchingMessage[ $value ] ) );
+                codecept_debug( $closestMatchingMessage[ $value ] );
+                if ( $params[ $value ] == $closestMatchingMessage[ $value ] ) {
+                    codecept_debug( "They match!" );
+                } else {
+                    codecept_debug( "They do not match!" );
+                }
+            }
+
             $this->fail( 'Failed asserting that the specified e-mail exists. Could not find matching: ' . $paramsNotFound );
         }
     }
