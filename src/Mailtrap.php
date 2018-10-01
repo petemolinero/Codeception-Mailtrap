@@ -459,4 +459,82 @@ class Mailtrap extends Module
 
         $this->wait($timeout)->until($condition, $message);
     }
+
+    /**
+     * Check if there is any email in the inbox that contains $params.
+     *
+     * @param $params
+     * @param $wait    the number or seconds to wait/retry if the e-mail isn't found initially
+     * @param $start   the time() that the first request was sent
+     *
+     * @return mixed
+     */
+    public function haveEmailWithinInbox( $params, $wait = 5, $start = null )
+    {
+        if ( is_null( $start ) ) {
+            $start = time();
+        }
+
+        $emails = $this->fetchAllMessages();
+        $closestMatching = array();
+        $closestMatchingMessage = array();
+        $emailExists = false;
+
+        // Cycle through each of the messages
+        foreach( $emails as $email ) {
+            $matchingParamsForMessage = array();
+
+            foreach ($params as $param => $value) {
+                if ( $param == 'html_body' ) {
+
+                    $email->html_body = rtrim( $email->html_body );
+
+                    // Ignore spacing issues
+                    $email->html_body = preg_replace( '/\s+/', '', $email->html_body );
+                    $params['html_body'] = preg_replace( '/\s+/', '', $params['html_body'] );
+                }
+
+                if ( $value == $email[$param] ) {
+                    $matchingParamsForMessage[] = $param;
+                }
+            }
+
+            // If every param had a match, then the requested email exists
+            if ( count( $matchingParamsForMessage ) == count( $params ) ) {
+                $emailExists = true;
+                break;
+            }
+            // If the message we just checked was the best match yet, save it
+            if ( count( $matchingParamsForMessage ) > count ( $closestMatching ) ) {
+                $closestMatching = $matchingParamsForMessage;
+                $closestMatchingMessage = $email;
+            }
+        }
+
+        // If we're still inside the wait task, keep polling the server
+        if ( !$emailExists && time() < ( $start + $wait ) ) {
+            $this->haveEmailWithinInbox( $params, $wait, $start );
+        }
+
+        // If it doesn't exist, fail with a useful message
+        if ( !$emailExists ) {
+            $paramsNotFound = implode( ', ', array_diff( array_keys( $params ), $closestMatching ) );
+
+            foreach ( array_diff( array_keys( $params ), $closestMatching ) as $value ) {
+                codecept_debug( "EXPECTED:" );
+                codecept_debug( $params[ $value ] );
+                codecept_debug( strlen( $params[ $value ] ) );
+                codecept_debug( "ACTUAL:" );
+                codecept_debug( strlen( $closestMatchingMessage->$value ) );
+                codecept_debug( $closestMatchingMessage->$value );
+                if ( $params[ $value ] == $closestMatchingMessage->$value ) {
+                    codecept_debug( "They match!" );
+                } else {
+                    codecept_debug( "They do not match!" );
+                }
+            }
+
+            $this->fail( 'Failed asserting that the specified e-mail exists. Could not find matching: ' . $paramsNotFound );
+        }
+    }
 }
