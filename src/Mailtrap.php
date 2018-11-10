@@ -475,7 +475,7 @@ class Mailtrap extends Module
             $start = time();
         }
 
-        $emails = $this->fetchAllMessages();
+        $emails = $this->fetchMessages();
         $closestMatching = array();
         $closestMatchingMessage = array();
         $emailExists = false;
@@ -487,15 +487,19 @@ class Mailtrap extends Module
             foreach ($params as $param => $value) {
                 if ( $param == 'html_body' ) {
 
-                    $email->html_body = rtrim( $email->html_body );
+                    $html_body = $email->html_body;
 
                     // Ignore spacing issues
-                    $email->html_body = preg_replace( '/\s+/', '', $email->html_body );
-                    $params['html_body'] = preg_replace( '/\s+/', '', $params['html_body'] );
-                }
+                    $html_body = preg_replace( '/\s+/', '', $html_body );
+                    $value = preg_replace( '/\s+/', '', $value );
 
-                if ( $value == $email[$param] ) {
-                    $matchingParamsForMessage[] = $param;
+                    if ( $value == $html_body ) {
+                        $matchingParamsForMessage[] = $param;
+                    }
+                } else {
+                    if ( $value == $email->$param ) {
+                        $matchingParamsForMessage[] = $param;
+                    }
                 }
             }
 
